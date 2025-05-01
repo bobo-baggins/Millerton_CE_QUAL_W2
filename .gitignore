@@ -26,10 +26,10 @@ Desktop.ini
 $RECYCLE.BIN/
 
 # Project specific
-CEQUAL_outputs/
-!CEQUAL_outputs/*.py
-Calibration/Runs/
-!Calibration/Runs/*.py
+CEQUAL_model/
+!CEQUAL_model/*.py
+!CEQUAL_model/*.xls
+!CEQUAL_model/w2_con.csv
 
 # Data directories
 profiles/
