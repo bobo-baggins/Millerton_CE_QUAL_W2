@@ -399,11 +399,11 @@ def run_simulation(start_date, end_date, analog_year, wait_time, run_name, temp_
 def main():
     """Main function that runs the simulation with predefined parameters"""
     # User defined variables
-    start_date = '04/17/2018 1:00'  # start date of simulation (always start at 1:00)
-    end_date = '12/15/2018 23:00'   # end date of simulation (always at at 23:00)
-    temp_profile_year = 2025        # year of temperature profile
+    start_date = '01/10/2024 1:00'  # start date of simulation (always start at 1:00)
+    end_date = '12/15/2024 23:00'   # end date of simulation (always at at 23:00)
+    temp_profile_year = 2024        # year of temperature profile
 #    analog_years = [2024,2023,2022,2021,2020,2019,2018,2017]           # available: [1988,1989,1990,1994,2002,2007,2008,2013,2020,2021,2022,2023,2024]
-    analog_years = [2018]
+    analog_years = [2024]
     wait_time = 220                 # seconds between simulations
     
     # Convert dates to datetime

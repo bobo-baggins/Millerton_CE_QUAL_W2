@@ -1,62 +1,118 @@
 
- ************* Subtract layer 140 at Julian day = 35539.962 NIT = 2009  IZMIN =6 *************
+ *************    Add layer 146 at Julian day = 37633.466   NIT = 3792  IZMIN =7*************
 
- ************* Subtract layer 141 at Julian day = 35542.736 NIT = 3235  IZMIN =6 *************
+ *************    Add layer 145 at Julian day = 37636.816   NIT = 7390  IZMIN =6*************
 
-                  Subtract segments 5 through 5
+ *************    Add layer 144 at Julian day = 37642.270   NIT = 12996  IZMIN =6*************
 
- ************* Subtract layer 142 at Julian day = 35551.676 NIT = 4817  IZMIN =6 *************
+ *************    Add layer 143 at Julian day = 37653.704   NIT = 19449  IZMIN =6*************
 
- ************* Subtract layer 143 at Julian day = 35555.450 NIT = 5445  IZMIN =6 *************
+ *************    Add layer 142 at Julian day = 37658.285   NIT = 27895  IZMIN =6*************
 
- *************    Add layer 143 at Julian day = 35561.951   NIT = 6850  IZMIN =6*************
-
- *************    Add layer 142 at Julian day = 35567.868   NIT = 7859  IZMIN =6*************
-
- *************    Add layer 141 at Julian day = 35580.331   NIT = 10206  IZMIN =7*************
+ *************    Add layer 141 at Julian day = 37664.332   NIT = 32548  IZMIN =6*************
 
                   Add segments 5 through 5
 
- *************    Add layer 140 at Julian day = 35586.606   NIT = 12888  IZMIN =5*************
+ *************    Add layer 140 at Julian day = 37670.067   NIT = 35293  IZMIN =6*************
 
- ************* Subtract layer 140 at Julian day = 35609.183 NIT = 19036  IZMIN =6 *************
+ *************    Add layer 139 at Julian day = 37673.852   NIT = 36981  IZMIN =5*************
 
- ************* Subtract layer 141 at Julian day = 35613.815 NIT = 20613  IZMIN =6 *************
+ *************    Add layer 138 at Julian day = 37683.303   NIT = 38585  IZMIN =5*************
+
+                  Add segments 4 through 4
+
+ *************    Add layer 137 at Julian day = 37696.905   NIT = 42220  IZMIN =5*************
+
+ *************    Add layer 136 at Julian day = 37701.323   NIT = 43463  IZMIN =4*************
+
+ *************    Add layer 135 at Julian day = 37704.795   NIT = 44177  IZMIN =5*************
+
+                  Add segments 3 through 3
+
+ *************    Add layer 134 at Julian day = 37708.682   NIT = 45809  IZMIN =4*************
+
+ *************    Add layer 133 at Julian day = 37711.159   NIT = 46878  IZMIN =3*************
+
+ *************    Add layer 132 at Julian day = 37714.681   NIT = 47777  IZMIN =4*************
+
+ *************    Add layer 131 at Julian day = 37719.327   NIT = 48665  IZMIN =3*************
+
+ *************    Add layer 130 at Julian day = 37729.365   NIT = 50570  IZMIN =4*************
+
+                  Add segments 2 through 2
+
+                  Add segments 34 through 34
+
+ *************    Add layer 129 at Julian day = 37734.649   NIT = 53754  IZMIN =3*************
+
+ *************    Add layer 128 at Julian day = 37736.777   NIT = 55609  IZMIN =3*************
+
+ *************    Add layer 127 at Julian day = 37739.981   NIT = 57217  IZMIN =2*************
+
+ *************    Add layer 126 at Julian day = 37781.375   NIT = 75347  IZMIN =2*************
+
+ ************* Subtract layer 126 at Julian day = 37787.117 NIT = 77270  IZMIN =3 *************
+
+ ************* Subtract layer 127 at Julian day = 37790.205 NIT = 78120  IZMIN =3 *************
+
+ ************* Subtract layer 128 at Julian day = 37793.576 NIT = 79209  IZMIN =3 *************
+
+ ************* Subtract layer 129 at Julian day = 37797.955 NIT = 81130  IZMIN =3 *************
+
+ ************* Subtract layer 130 at Julian day = 37801.422 NIT = 82840  IZMIN =3 *************
+
+                  Subtract segments 2 through 2
+
+                  Subtract segments 34 through 34
+
+ ************* Subtract layer 131 at Julian day = 37805.645 NIT = 83814  IZMIN =3 *************
+
+ ************* Subtract layer 132 at Julian day = 37810.254 NIT = 84948  IZMIN =3 *************
+
+ ************* Subtract layer 133 at Julian day = 37812.174 NIT = 85436  IZMIN =4 *************
+
+ ************* Subtract layer 134 at Julian day = 37814.078 NIT = 86028  IZMIN =4 *************
+
+ ************* Subtract layer 135 at Julian day = 37816.268 NIT = 86789  IZMIN =4 *************
+
+                  Subtract segments 3 through 3
+
+ ************* Subtract layer 136 at Julian day = 37818.775 NIT = 87263  IZMIN =4 *************
+
+ ************* Subtract layer 137 at Julian day = 37820.618 NIT = 87800  IZMIN =5 *************
+
+ ************* Subtract layer 138 at Julian day = 37823.096 NIT = 88670  IZMIN =5 *************
+
+                  Subtract segments 4 through 4
+
+ ************* Subtract layer 139 at Julian day = 37826.455 NIT = 89458  IZMIN =5 *************
+
+ ************* Subtract layer 140 at Julian day = 37830.191 NIT = 90584  IZMIN =6 *************
+
+ ************* Subtract layer 141 at Julian day = 37832.582 NIT = 91364  IZMIN =6 *************
 
                   Subtract segments 5 through 5
 
- ************* Subtract layer 142 at Julian day = 35616.325 NIT = 21148  IZMIN =6 *************
+ ************* Subtract layer 142 at Julian day = 37836.580 NIT = 92379  IZMIN =6 *************
 
- ************* Subtract layer 143 at Julian day = 35618.738 NIT = 21596  IZMIN =6 *************
+ ************* Subtract layer 143 at Julian day = 37840.309 NIT = 93422  IZMIN =6 *************
 
- ************* Subtract layer 144 at Julian day = 35621.590 NIT = 22292  IZMIN =6 *************
+ ************* Subtract layer 144 at Julian day = 37849.420 NIT = 95129  IZMIN =6 *************
 
- ************* Subtract layer 145 at Julian day = 35625.093 NIT = 23126  IZMIN =7 *************
+ ************* Subtract layer 145 at Julian day = 37860.170 NIT = 97610  IZMIN =7 *************
 
- ************* Subtract layer 146 at Julian day = 35628.315 NIT = 23830  IZMIN =7 *************
+ ************* Subtract layer 146 at Julian day = 37892.393 NIT = 103542  IZMIN =7 *************
 
- ************* Subtract layer 147 at Julian day = 35632.313 NIT = 25220  IZMIN =7 *************
+ ************* Subtract layer 147 at Julian day = 37900.391 NIT = 105074  IZMIN =7 *************
 
- ************* Subtract layer 148 at Julian day = 35637.882 NIT = 27566  IZMIN =7 *************
+ ************* Subtract layer 148 at Julian day = 37906.112 NIT = 106372  IZMIN =7 *************
 
                   Subtract segments 6 through 6
 
- ************* Subtract layer 149 at Julian day = 35643.987 NIT = 29003  IZMIN =7 *************
+ ************* Subtract layer 149 at Julian day = 37915.472 NIT = 108347  IZMIN =8 *************
 
- ************* Subtract layer 150 at Julian day = 35647.723 NIT = 29634  IZMIN =8 *************
+ ************* Subtract layer 150 at Julian day = 37937.726 NIT = 127256  IZMIN =8 *************
 
- ************* Subtract layer 151 at Julian day = 35652.327 NIT = 30700  IZMIN =8 *************
+ ************* Subtract layer 151 at Julian day = 37946.776 NIT = 136612  IZMIN =8 *************
 
- ************* Subtract layer 152 at Julian day = 35656.217 NIT = 31642  IZMIN =8 *************
-
- ************* Subtract layer 153 at Julian day = 35661.019 NIT = 33072  IZMIN =8 *************
-
-                  Subtract segments 7 through 7
-
- *************    Add layer 153 at Julian day = 35700.033   NIT = 41223  IZMIN =9*************
-
-                  Add segments 7 through 7
-
- *************    Add layer 152 at Julian day = 35739.073   NIT = 50391  IZMIN =8*************
-
- *************    Add layer 151 at Julian day = 35761.677   NIT = 54333  IZMIN =8*************
+ *************    Add layer 151 at Julian day = 37952.470   NIT = 139580  IZMIN =8*************
