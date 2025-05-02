@@ -1,12 +1,11 @@
-
 # CeQUAL Model 
 2024-07-07
 
-This is a suite of python scripts to assit in running the core CE-QUAL-W2 model; including pre and post processing tools. 
+This is a suite of Python scripts to assist in running the core CE-QUAL-W2 model, including pre- and post-processing tools. 
 
 The core model is run using the CE-QUAL-W2 executable through the script 'CeQUAL_model\run_simulations.py'.
 
-Reccomended method is setting up a virtual environment and using the provided 'req.txt' file to install all required packages.
+Recommended method is setting up a virtual environment and using the provided 'req.txt' file to install all required packages.
 
 Instructions below
 
