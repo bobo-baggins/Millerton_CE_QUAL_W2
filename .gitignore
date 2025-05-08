@@ -26,10 +26,15 @@ Desktop.ini
 $RECYCLE.BIN/
 
 # Project specific
-CEQUAL_model/
+!CEQUAL_model/mshade.npt
+!CEQUAL_model/mwsc.npt
+!CEQUAL_model/mvpr1.npt
+!CEQUAL_model/mbth_wb1.npt
 !CEQUAL_model/*.py
 !CEQUAL_model/*.xls
 !CEQUAL_model/w2_con.csv
+!CEQUAL_model/w2_con.csv.backup
+CEQUAL_model/
 
 # Data directories
 profiles/
