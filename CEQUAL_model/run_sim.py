@@ -14,6 +14,11 @@ import datetime
 import subprocess
 import glob, os, shutil
 import time
+import sys
+
+# Add parent directory to Python path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from Modules.DataVis import QAQC_plot
 
 def backup_w2_con():
     """Backup w2_con.csv file"""
@@ -395,6 +400,13 @@ def run_simulation(start_date, end_date, analog_year, wait_time, run_name, temp_
     
     # Save outputs
     save_model_outputs(analog_year, run_name, start_date, end_date, temp_profile_year)
+    
+    # Create QAQC plot after files are saved
+    base_dir = '../CEQUAL_outputs'
+    year_dir = os.path.join(base_dir, str(analog_year))
+    run_dir = os.path.join(year_dir, run_name)
+    csv_file = os.path.join(run_dir, f'two_31_{analog_year}_{run_name}.csv')
+    QAQC_plot(csv_file, analog_year, run_name)
 
 def main():
     """Main function that runs the simulation with predefined parameters"""
