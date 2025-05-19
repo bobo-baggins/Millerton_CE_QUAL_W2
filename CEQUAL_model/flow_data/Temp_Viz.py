@@ -34,17 +34,17 @@ sja_temp = sja_temp[sja_temp.iloc[:, 0] >= start_date]
 # Create the plot
 plt.figure(figsize=(12, 6))
 
-# Plot each temperature series, converting from C to F
+# Plot each temperature series
 plt.plot(sja_temp.iloc[:, 0].values, 
-         sja_temp.iloc[:, 1].values * 9/5 + 32, 
+         sja_temp.iloc[:, 1].values, 
          label='SJA Water Temperature',
          color=PLOT_COLORS['SJA'])
 plt.plot(k2p_temp.iloc[:, 0].values, 
-         k2p_temp.iloc[:, 1].values * 9/5 + 32, 
+         k2p_temp.iloc[:, 1].values, 
          label='K2P Water Temperature',
          color=PLOT_COLORS['K2P'])
 plt.plot(k2p_weighted.iloc[:, 0].values, 
-         k2p_weighted.iloc[:, 1].values * 9/5 + 32, 
+         k2p_weighted.iloc[:, 1].values, 
          label='Weighted Water Temperature',
          color=PLOT_COLORS['Weighted'])
 
@@ -59,10 +59,10 @@ plt.xlim(start_date, pd.to_datetime('2024-12-31'))
 july_30 = pd.to_datetime('2024-07-30').date()
 plt.axvline(x=july_30, color='black', linestyle='--', alpha=0.7)
 
-# Convert the annotation coordinates to Fahrenheit (14°C → 57.2°F, 12°C → 53.6°F)
+# Convert the annotation coordinates (keeping in Celsius)
 plt.annotate('K2P Data Available\nbeginning July 30th', 
-            xy=(july_30, 57.2),  # Convert 14°C to °F
-            xytext=(july_30 + pd.Timedelta(days=25), 53.6),  # Convert 12°C to °F
+            xy=(july_30, 14),  # Using Celsius value
+            xytext=(july_30 + pd.Timedelta(days=25), 12),  # Using Celsius value
             bbox=dict(facecolor='white', edgecolor='black', alpha=0.8),
             horizontalalignment='left',
             verticalalignment='top',
@@ -72,7 +72,7 @@ plt.annotate('K2P Data Available\nbeginning July 30th',
 # Customize the plot
 plt.title('2024 Inflow Temperature Comparison', fontsize=14)
 plt.xlabel('Date', fontsize=14)
-plt.ylabel('Daily Average Water Temperature (°F)', fontsize=14)
+plt.ylabel('Daily Average Water Temperature (°C)', fontsize=14)
 plt.legend(fontsize=14)
 plt.grid(True)
 

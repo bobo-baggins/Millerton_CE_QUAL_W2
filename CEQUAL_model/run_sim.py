@@ -43,12 +43,41 @@ def read_and_filter_data(start_date, end_date):
     df_flow = pd.read_csv('flow_data/flow_data_base.csv', index_col=0, parse_dates=True)
     df_temp = pd.read_csv('flow_data/flow_data_temp.csv', index_col=0, parse_dates=True)
     
+    print("\nOriginal data shapes:")
+    print(f"Flow data shape: {df_flow.shape}")
+    print(f"Temp data shape: {df_temp.shape}")
+    
     df_flow.index = pd.to_datetime(df_flow.index)
     start_date_inclusive = pd.Timestamp(start_date).floor('D')
     end_date_inclusive = pd.Timestamp(end_date).ceil('D')
     
+    # Calculate Julian days for start and end dates
+    start_jday = (start_date_inclusive - pd.Timestamp('1921-01-01')).days + 1
+    end_jday = (end_date_inclusive - pd.Timestamp('1921-01-01')).days + 1
+    
+    print(f"\nDate Range Information:")
+    print(f"Start date: {start_date_inclusive}")
+    print(f"End date: {end_date_inclusive}")
+    print(f"Start Julian day: {start_jday}")
+    print(f"End Julian day: {end_jday}")
+    
+    # Print the actual date range in the data
+    print("\nData date ranges:")
+    print(f"Flow data range: {df_flow.index.min()} to {df_flow.index.max()}")
+    print(f"Temp data range: {df_temp.index.min()} to {df_temp.index.max()}")
+    
     df_flow = df_flow[(df_flow.index >= start_date_inclusive) & (df_flow.index <= end_date_inclusive)]
     df_temp = df_temp[(df_temp.index >= start_date_inclusive) & (df_temp.index <= end_date_inclusive)]
+    
+    print(f"\nFiltered data shapes:")
+    print(f"Flow data shape: {df_flow.shape}")
+    print(f"Temp data shape: {df_temp.shape}")
+    
+    # Print the first and last few rows of the filtered data
+    print("\nFirst few rows of filtered flow data:")
+    print(df_flow.head())
+    print("\nLast few rows of filtered flow data:")
+    print(df_flow.tail())
     
     return df_flow, df_temp
 
@@ -326,7 +355,9 @@ def create_run_details_file(run_dir, run_name, start_date, end_date, analog_year
             f.write(f"Run Name: {run_name}\n")
             f.write(f"Start Date: {start_date.strftime('%m/%d/%Y %H:%M')}\n")
             f.write(f"End Date: {end_date.strftime('%m/%d/%Y %H:%M')}\n")
-            f.write(f"Temperature Profile Year: {temp_profile_year}\n")
+            # Create temperature profile date by replacing the year in start_date with temp_profile_year
+            temp_profile_date = start_date.replace(year=temp_profile_year)
+            f.write(f"Temperature Profile Date: {temp_profile_date.strftime('%m/%d/%Y')}\n")
             f.write(f"Flow Data Year: {start_date.year}\n")
             f.write(f"Meteorological Data Year: {analog_year}\n")
             f.write(f"\nRun Date: {datetime.datetime.now().strftime('%m/%d/%Y %H:%M:%S')}\n")
@@ -411,11 +442,11 @@ def run_simulation(start_date, end_date, analog_year, wait_time, run_name, temp_
 def main():
     """Main function that runs the simulation with predefined parameters"""
     # User defined variables
-    start_date = '01/10/2024 1:00'  # start date of simulation (always start at 1:00)
-    end_date = '12/15/2024 23:00'   # end date of simulation (always at at 23:00)
-    temp_profile_year = 2024        # year of temperature profile
-#    analog_years = [2024,2023,2022,2021,2020,2019,2018,2017]           # available: [1988,1989,1990,1994,2002,2007,2008,2013,2020,2021,2022,2023,2024]
-    analog_years = [2024]
+    start_date = '05/15/2018 1:00'  # start date of simulation (always start at 1:00)
+    end_date = '12/30/2018 23:00'   # end date of simulation (always at at 23:00)
+    temp_profile_year = 2022        # year of temperature profile
+    #analog_years = [2022]           # available: [1988,1989,1990,1994,2002,2007,2008,2013,2020,2021,2022,2023,2024]
+    analog_years = [2024,2023,2022,2021,2020,2019, 2018,2017]           # available: [1988,1989,1990,1994,2002,2007,2008,2013,2020,2021,2022,2023,2024]
     wait_time = 220                 # seconds between simulations
     
     # Convert dates to datetime

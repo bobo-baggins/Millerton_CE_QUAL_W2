@@ -1,0 +1,4 @@
+Profile,R2,NSE,RMSE,Max_Difference,Min_Difference,Mean_Difference,Max_Abs_Difference,Min_Abs_Difference,Mean_Abs_Difference,Number_of_Points,Start_Date,End_Date
+February Profile,0.97,0.23,0.99,1.67,-0.08,0.91,1.67,0.00555555999999946,0.91,1465,2024-09-05,2024-11-05
+March Profile,0.97,0.32,0.93,1.67,-0.08,0.86,1.67,0.0,0.86,1465,2024-09-05,2024-11-05
+April Profile,0.97,0.17,1.02,1.76,-0.09,0.95,1.76,0.0022222200000001635,0.95,1465,2024-09-05,2024-11-05

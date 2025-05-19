@@ -11,69 +11,302 @@ def julian_to_date(julian_day, year):
     start_date = datetime(1921, 1, 1)
     return start_date + timedelta(days=float(julian_day) - 1)
 
-def plot_temperature_comparison(file_a, file_b, file_c, year, jdays):
+def calculate_weighted_temp(spill_temp, release_temp, spill_flow, release_flow):
+    """
+    Calculate weighted temperature based on spill and release flows
+    
+    Parameters:
+    -----------
+    spill_temp : array-like
+        Spill temperature values
+    release_temp : array-like
+        Release temperature values
+    spill_flow : array-like
+        Spill flow values
+    release_flow : array-like
+        Release flow values
+        
+    Returns:
+    --------
+    array-like
+        Weighted temperature values
+    """
+    weighted_temp = np.zeros_like(spill_temp)
+    for i in range(len(spill_temp)):
+        if spill_flow[i] == 0:
+            weighted_temp[i] = release_temp[i]
+        else:
+            weighted_temp[i] = ((spill_temp[i] * spill_flow[i]) + 
+                              (release_temp[i] * release_flow[i])) / (spill_flow[i] + release_flow[i])
+    return weighted_temp
+
+def calculate_tcd_weighted_temp(spill_temp, release_temp, madera_temp, spill_flow, release_flow, jdays, year):
+    """
+    Calculate TCD weighted temperature based on spill and release flows with date-based adjustments
+    
+    Parameters:
+    -----------
+    spill_temp : array-like
+        Spill temperature values
+    release_temp : array-like
+        Release temperature values
+    madera_temp : array-like
+        Madera temperature values
+    spill_flow : array-like
+        Spill flow values
+    release_flow : array-like
+        Release flow values
+    jdays : array-like
+        Julian days for each data point
+    year : int
+        Year for the simulation
+        
+    Returns:
+    --------
+    array-like
+        TCD weighted temperature values
+    """
+    # Convert Julian days to datetime objects
+    dates = [julian_to_date(jday, year) for jday in jdays]
+    
+    # Initialize TCD temperature array
+    tcd_temp = np.zeros_like(spill_temp)
+    
+    # Process each time step
+    for i in range(len(spill_temp)):
+        current_date = dates[i]
+        current_month = current_date.month
+        
+        # Apply flow adjustments based on month
+        if 3 <= current_month <= 6:  # March to June
+            flow_adjustment = 9.91
+            adjustment_temp = madera_temp[i]  # Use Madera temp for 350 cfs adjustment
+        elif current_month == 7:  # July
+            flow_adjustment = 4.25
+            adjustment_temp = madera_temp[i]  # Use Madera temp for 150 cfs adjustment
+        elif current_month in [8]:  # August
+            flow_adjustment = 2.83
+            adjustment_temp = madera_temp[i]  # Use Madera temp for 100 cfs adjustment
+        else:
+            flow_adjustment = 0
+            adjustment_temp = 0
+            
+        # Add flow adjustment to release flow
+        adjusted_release_flow = release_flow[i] + flow_adjustment
+        
+        # Calculate total flow for weighting
+        total_flow = spill_flow[i] + adjusted_release_flow
+        
+        # Calculate weighted average temperature including all components
+        # Only include spillway component if there's spillway flow
+        weighted_sum = (release_temp[i] * release_flow[i]) + \
+                      (adjustment_temp * flow_adjustment)
+        
+        if spill_flow[i] > 0:
+            weighted_sum += (spill_temp[i] * spill_flow[i])
+        
+        tcd_temp[i] = weighted_sum / total_flow if total_flow > 0 else release_temp[i]
+        
+        # Print debug info only for August
+        if current_month == 8:
+            print(f"\nTimestamp: {current_date}")
+            print(f"Flow adjustment: {flow_adjustment}")
+            print(f"Adjusted release flow: {adjusted_release_flow}")
+            print(f"Total flow: {total_flow}")
+            print(f"Release temp: {release_temp[i]}")
+            print(f"Madera temp: {madera_temp[i]}")
+            print(f"Spill flow: {spill_flow[i]}")
+            print(f"Spill temp: {spill_temp[i]}")
+            print(f"Weighted sum: {weighted_sum}")
+            print(f"TCD temp: {tcd_temp[i]}")
+    
+    return tcd_temp
+
+def count_days_above_threshold(df, threshold):
+    """
+    Count the number of days where temperature is above the threshold
+    
+    Parameters:
+    -----------
+    df : pandas.DataFrame
+        DataFrame containing 'Temperature' column
+    threshold : float
+        Temperature threshold in Celsius
+        
+    Returns:
+    --------
+    int
+        Number of days above threshold
+    """
+    return (df['Temperature'] > threshold).sum()
+
+def plot_temperature_comparison(file_a, file_b, file_c=None, year=None, jdays=None, 
+                              scenario_a_name="Scenario A", scenario_b_name="Scenario B", 
+                              scenario_c_name="Scenario C"):
     """
     Plot temperature comparisons for different scenarios using provided Julian days
     
     Parameters:
     -----------
-    file_a, file_b, file_c : str
-        Paths to the CSV files containing temperature data
+    file_a, file_b : str
+        Paths to the CSV files containing temperature data for scenarios A and B
+    file_c : str, optional
+        Path to the CSV file containing temperature data for scenario C
     year : int
         Year for the simulation
     jdays : array-like
         Array of Julian days from the simulation
+    scenario_a_name : str, optional
+        Name for scenario A (default: "Scenario A")
+    scenario_b_name : str, optional
+        Name for scenario B (default: "Scenario B")
+    scenario_c_name : str, optional
+        Name for scenario C (default: "Scenario C")
     """
-    # Read CSV files, skipping first 3 rows
+    # DPI configuration for output image
+    FIGURE_DPI = 300  # Dots per inch for the output image
+    
+    # Read temperature CSV files, skipping first 3 rows
     df_a = pd.read_csv(file_a, skiprows=3, header=None)
     df_b = pd.read_csv(file_b, skiprows=3, header=None)
-    df_c = pd.read_csv(file_c, skiprows=3, header=None)
     
-    # Use the provided Julian days
-    time_a = jdays
-    temperature_a = df_a[5]  # 6th column (temperature)
+    # Read flow CSV files
+    flow_file_a = file_a.replace('two_31', 'qwo_31')
+    flow_file_b = file_b.replace('two_31', 'qwo_31')
     
-    time_b = jdays
-    temperature_b = df_b[5]
+    flow_df_a = pd.read_csv(flow_file_a, skiprows=3, header=None)
+    flow_df_b = pd.read_csv(flow_file_b, skiprows=3, header=None)
     
-    time_c = jdays
-    temperature_c = df_c[5]
+    # Initialize lists for data
+    dfs = [df_a, df_b]
+    flow_dfs = [flow_df_a, flow_df_b]
+    scenario_names = [scenario_a_name, scenario_b_name]
+    colors = ['blue', 'red']
     
-    # Convert Julian days to dates
-    dates_a = [julian_to_date(jday, year) for jday in time_a]
-    dates_b = [julian_to_date(jday, year) for jday in time_b]
-    dates_c = [julian_to_date(jday, year) for jday in time_c]
+    # Add scenario C if provided
+    if file_c is not None:
+        df_c = pd.read_csv(file_c, skiprows=3, header=None)
+        flow_file_c = file_c.replace('two_31', 'qwo_31')
+        flow_df_c = pd.read_csv(flow_file_c, skiprows=3, header=None)
+        dfs.append(df_c)
+        flow_dfs.append(flow_df_c)
+        scenario_names.append(scenario_c_name)
+        colors.append('green')
+    
+    # Clean up the data - remove commas and convert to numeric
+    for df in dfs + flow_dfs:
+        for col in df.columns:
+            # Check if the column is string type before trying to strip commas
+            if df[col].dtype == 'object':
+                df[col] = df[col].str.rstrip(',').astype(float)
+            else:
+                df[col] = df[col].astype(float)
+        df[0] = df[0].astype(float)  # JDAY doesn't need comma removal
+    
+    # Extract data for each scenario
+    weighted_temps = []
+    spill_flows = []
+    dates = []
+    
+    for i, (df, flow_df) in enumerate(zip(dfs, flow_dfs)):
+        time = jdays
+        spill_temp = df[2]  # 3rd column (spill temperature)
+        release_temp = df[5]  # 6th column (release temperature)
+        spill_flow = flow_df[2]  # 3rd column (spill flow)
+        release_flow = flow_df[5]  # 6th column (release flow)
+        
+        # Convert -99 values to NaN
+        spill_temp[spill_temp == -99] = np.nan
+        release_temp[release_temp == -99] = np.nan
+        
+        # Calculate weighted temperature
+        weighted_temp = calculate_weighted_temp(spill_temp, release_temp, spill_flow, release_flow)
+        weighted_temps.append(weighted_temp)
+        spill_flows.append(spill_flow)
+        dates.append([julian_to_date(jday, year) for jday in time])
     
     # Create figure with two subplots
-    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(15, 10), height_ratios=[2, 1])
+    fig = plt.figure(figsize=(18, 10))
+    gs = fig.add_gridspec(2, 1, height_ratios=[2, 1])
+    ax1 = fig.add_subplot(gs[0])
+    ax2 = fig.add_subplot(gs[1])
     
-    # Plot temperatures on first subplot
-    ax1.plot(dates_a, temperature_a, label='April_Scenario_A', color='blue')
-    ax1.plot(dates_b, temperature_b, label='April_Scenario_B', color='red')
-    ax1.plot(dates_c, temperature_c, label='April_Scenario_C', color='green')
+    # Set font to Arial
+    plt.rcParams['font.family'] = 'Arial'
+    plt.rcParams['font.size'] = 14
+    
+    # Plot weighted temperatures on first subplot
+    for i, (temp, date, name, color) in enumerate(zip(weighted_temps, dates, scenario_names, colors)):
+        ax1.plot(date, temp, label=name, color=color, linestyle='-')
+    
+    # Check if there's any spillway flow
+    has_spillway_flow = any((flow > 0).any() for flow in spill_flows)
     
     # Format first subplot
     ax1.xaxis.set_major_formatter(plt.matplotlib.dates.DateFormatter('%b %d'))
     ax1.xaxis.set_major_locator(plt.matplotlib.dates.MonthLocator())
-    ax1.set_ylabel('Temperature (°C)')
-    ax1.set_title(f'Temperature Comparison for {year}')
+    ax1.set_ylabel('River Release Temperature (°C)' if not has_spillway_flow else 'Weighted Temperature (°C)', fontsize=14)
+    ax1.set_title(f'River Release Temperature Comparison for {year}' if not has_spillway_flow else f'Weighted Temperature Comparison for {year}', fontsize=14)
     ax1.grid(True)
-    ax1.legend()
+    ax1.legend(fontsize=14)
     
-    # Plot differences on second subplot using matching colors
-    ax2.plot(dates_a, temperature_b - temperature_a, label='B - A', color='red')
-    ax2.plot(dates_a, temperature_c - temperature_a, label='C - A', color='green')
+    # Plot differences on second subplot
+    for i in range(1, len(weighted_temps)):
+        ax2.plot(dates[0], weighted_temps[i] - weighted_temps[0], 
+                label=f'{scenario_names[i]} - {scenario_names[0]}', 
+                color=colors[i])
     
     # Format second subplot
     ax2.xaxis.set_major_formatter(plt.matplotlib.dates.DateFormatter('%b %d'))
     ax2.xaxis.set_major_locator(plt.matplotlib.dates.MonthLocator())
-    ax2.set_xlabel('Date')
-    ax2.set_ylabel('Temperature Difference (°C)')
+    ax2.set_xlabel('Date', fontsize=14)
+    ax2.set_ylabel('Temperature Difference (°C)', fontsize=14)
     ax2.grid(True)
-    ax2.legend()
+    ax2.legend(fontsize=14)
     
     # Rotate and align the tick labels
     plt.gcf().autofmt_xdate()
+    
+    # Calculate statistics for September 5th to November 5th
+    start_date = datetime(year, 9, 5)
+    end_date = datetime(year, 12, 5)
+    
+    # Create DataFrames for each scenario
+    dfs_stats = []
+    for date, temp in zip(dates, weighted_temps):
+        df = pd.DataFrame({'Date': date, 'Temperature': temp})
+        df = df[(df['Date'] >= start_date) & (df['Date'] <= end_date)]
+        dfs_stats.append(df)
+    
+    # Calculate statistics
+    stats = {
+        'Scenario': scenario_names,
+        'Max_Temperature': [df['Temperature'].max() for df in dfs_stats],
+        'Min_Temperature': [df['Temperature'].min() for df in dfs_stats],
+        'Mean_Temperature': [df['Temperature'].mean() for df in dfs_stats],
+        'Days_Above_14.44C': [count_days_above_threshold(df, 14.44)/24 for df in dfs_stats]
+    }
+    
+    # Create DataFrame from statistics
+    stats_df = pd.DataFrame(stats)
+    
+    # Create text box content
+    text_lines = [f'Statistics (9/5 - 12/5):', '']  # Add blank line
+    for i, name in enumerate(scenario_names):
+        text_lines.extend([
+            f'{name}:',
+            f'  Max: {stats["Max_Temperature"][i]:.2f}°C',
+            f'  Min: {stats["Min_Temperature"][i]:.2f}°C',
+            f'  Mean: {stats["Mean_Temperature"][i]:.2f}°C',
+            f'  Days > 14.44°C: {stats["Days_Above_14.44C"][i]:.2f}',
+            ''  # Add blank line
+        ])
+    textstr = '\n'.join(text_lines)
+    
+    # Add text box to the plot
+    props = dict(boxstyle='round', facecolor='white', alpha=0.95)
+    ax1.text(0.02, 0.98, textstr, transform=ax1.transAxes, fontsize=16,
+             verticalalignment='top', bbox=props)
     
     # Adjust layout to prevent overlap
     plt.tight_layout()
@@ -88,7 +321,251 @@ def plot_temperature_comparison(file_a, file_b, file_c, year, jdays):
     output_file = os.path.join(output_dir, f'temperature_comparison_{timestamp}.png')
     
     # Save with high DPI for better quality
-    plt.savefig(output_file, dpi=300, bbox_inches='tight')
+    plt.savefig(output_file, dpi=FIGURE_DPI, bbox_inches='tight')
+    
+    # Create DataFrame with weighted temperatures and dates
+    weighted_data = pd.DataFrame({
+        'DateTime': dates[0],
+        **{f'{name}_Temp': temp for name, temp in zip(scenario_names, weighted_temps)}
+    })
+    
+    # Save weighted temperatures to CSV
+    weighted_csv = os.path.join(output_dir, f'weighted_temperatures_{timestamp}.csv')
+    weighted_data.to_csv(weighted_csv, index=False)
+    print(f"\nWeighted temperatures saved to: {weighted_csv}")
+    
+    # Save statistics to CSV
+    stats_file = os.path.join(output_dir, f'temperature_stats_{timestamp}.csv')
+    stats_df.to_csv(stats_file, index=False)
+    print(f"\nStatistics saved to: {stats_file}")
+    
+    return plt
+
+def plot_tcd_comparison(file_a, file_b, file_c=None, year=None, jdays=None, 
+                       scenario_a_name="Scenario A", scenario_b_name="Scenario B", 
+                       scenario_c_name="Scenario C"):
+    """
+    Plot temperature comparisons where one scenario uses TCD weighted temperature and the other uses regular weighted temperature
+    
+    Parameters:
+    -----------
+    file_a, file_b : str
+        Paths to the CSV files containing temperature data for scenarios A and B
+    file_c : str, optional
+        Path to the CSV file containing temperature data for scenario C
+    year : int
+        Year for the simulation
+    jdays : array-like
+        Array of Julian days from the simulation
+    scenario_a_name : str, optional
+        Name for scenario A (default: "Scenario A")
+    scenario_b_name : str, optional
+        Name for scenario B (default: "Scenario B")
+    scenario_c_name : str, optional
+        Name for scenario C (default: "Scenario C")
+    """
+    if year is None or jdays is None:
+        raise ValueError("year and jdays parameters are required for TCD calculations")
+        
+    # DPI configuration for output image
+    FIGURE_DPI = 300  # Dots per inch for the output image
+    
+    # Read temperature CSV files, skipping first 3 rows
+    df_a = pd.read_csv(file_a, skiprows=3, header=None)
+    df_b = pd.read_csv(file_b, skiprows=3, header=None)
+    
+    # Read flow CSV files
+    flow_file_a = file_a.replace('two_31', 'qwo_31')
+    flow_file_b = file_b.replace('two_31', 'qwo_31')
+    
+    flow_df_a = pd.read_csv(flow_file_a, skiprows=3, header=None)
+    flow_df_b = pd.read_csv(flow_file_b, skiprows=3, header=None)
+    
+    # Initialize lists for data
+    dfs = [df_a, df_b]
+    flow_dfs = [flow_df_a, flow_df_b]
+    scenario_names = [scenario_a_name, scenario_b_name]
+    colors = ['blue', 'red']
+    
+    # Add scenario C if provided
+    if file_c is not None:
+        df_c = pd.read_csv(file_c, skiprows=3, header=None)
+        flow_file_c = file_c.replace('two_31', 'qwo_31')
+        flow_df_c = pd.read_csv(flow_file_c, skiprows=3, header=None)
+        dfs.append(df_c)
+        flow_dfs.append(flow_df_c)
+        scenario_names.append(scenario_c_name)
+        colors.append('green')
+    
+    # Clean up the data - remove commas and convert to numeric
+    for df in dfs + flow_dfs:
+        for col in df.columns:
+            if df[col].dtype == 'object':
+                df[col] = df[col].str.rstrip(',').astype(float)
+            else:
+                df[col] = df[col].astype(float)
+        df[0] = df[0].astype(float)  # JDAY doesn't need comma removal
+    
+    # Extract data for each scenario
+    weighted_temps = []
+    spill_flows = []
+    dates = []
+    
+    # Get the length of the shorter array (Madera scenario)
+    min_length = min(len(df[0]) for df in dfs)
+    
+    print("\nCalculating weighted temperatures:")
+    for i, (df, flow_df) in enumerate(zip(dfs, flow_dfs)):
+        # Use the Julian days from each file instead of the input jdays
+        time = df[0][:min_length]  # Trim to shorter length
+        spill_temp = df[2][:min_length]  # Trim to shorter length
+        release_temp = df[5][:min_length]  # Trim to shorter length
+        madera_temp = df[4][:min_length]  # Trim to shorter length
+        spill_flow = flow_df[2][:min_length]  # Trim to shorter length
+        release_flow = flow_df[5][:min_length]  # Trim to shorter length
+        
+        # Convert -99 values to NaN
+        spill_temp[spill_temp == -99] = np.nan
+        release_temp[release_temp == -99] = np.nan
+        madera_temp[madera_temp == -99] = np.nan
+        
+        # Calculate weighted temperature - use TCD for scenario B, regular for scenario A
+        if i == 1:  # Scenario B (Madera)
+            print(f"\nCalculating TCD weighted temperature for {scenario_names[i]}")
+            weighted_temp = calculate_tcd_weighted_temp(spill_temp, release_temp, madera_temp, 
+                                                     spill_flow, release_flow, time, year)
+            print(f"TCD weighted temperature array length: {len(weighted_temp)}")
+            print(f"First few TCD weighted temperatures: {weighted_temp[:5]}")
+        else:  # Scenario A (Obs)
+            print(f"\nCalculating regular weighted temperature for {scenario_names[i]}")
+            weighted_temp = calculate_weighted_temp(spill_temp, release_temp, spill_flow, release_flow)
+            print(f"Regular weighted temperature array length: {len(weighted_temp)}")
+            print(f"First few regular weighted temperatures: {weighted_temp[:5]}")
+            
+        weighted_temps.append(weighted_temp)
+        spill_flows.append(spill_flow)
+        dates.append([julian_to_date(jday, year) for jday in time])
+    
+    # Create DataFrame with both weighted temperatures and datetime
+    comparison_df = pd.DataFrame({
+        'DateTime': dates[0],
+        f'{scenario_names[0]}_Temp': weighted_temps[0],
+        f'{scenario_names[1]}_Temp': weighted_temps[1],
+        'Spill_Flow': spill_flows[0],
+        'Release_Flow': release_flow,
+        'Madera_Temp': madera_temp
+    })
+    
+    # Save the comparison data to CSV
+    output_dir = f'CEQUAL_outputs/{year}'
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    comparison_csv = os.path.join(output_dir, f'temperature_comparison_detailed_{timestamp}.csv')
+    comparison_df.to_csv(comparison_csv, index=False)
+    print(f"\nDetailed temperature comparison saved to: {comparison_csv}")
+    
+    # Continue with the rest of the plotting code...
+    print("\nPlotting temperatures:")
+    for i, (temp, date, name) in enumerate(zip(weighted_temps, dates, scenario_names)):
+        print(f"{name} temperature array length: {len(temp)}")
+        print(f"{name} dates array length: {len(date)}")
+    
+    # Create figure with two subplots
+    fig = plt.figure(figsize=(18, 10))
+    gs = fig.add_gridspec(2, 1, height_ratios=[2, 1])
+    ax1 = fig.add_subplot(gs[0])
+    ax2 = fig.add_subplot(gs[1])
+    
+    # Set font to Arial
+    plt.rcParams['font.family'] = 'Arial'
+    plt.rcParams['font.size'] = 14
+    
+    # Plot weighted temperatures on first subplot
+    for i, (temp, date, name, color) in enumerate(zip(weighted_temps, dates, scenario_names, colors)):
+        print(f"Plotting {name} with color {color}")
+        ax1.plot(date, temp, label=name, color=color, linestyle='-')
+    
+    # Format first subplot
+    ax1.xaxis.set_major_formatter(plt.matplotlib.dates.DateFormatter('%b %d'))
+    ax1.xaxis.set_major_locator(plt.matplotlib.dates.MonthLocator())
+    ax1.set_ylabel('Temperature (°C)', fontsize=14)
+    ax1.set_title(f'Temperature Comparison for {year} (Obs vs TCD)', fontsize=14)
+    ax1.grid(True)
+    ax1.legend(fontsize=14)
+    
+    # Plot differences on second subplot
+    for i in range(1, len(weighted_temps)):
+        ax2.plot(dates[0], weighted_temps[i] - weighted_temps[0], 
+                label=f'{scenario_names[i]} - {scenario_names[0]}', 
+                color=colors[i])
+    
+    # Format second subplot
+    ax2.xaxis.set_major_formatter(plt.matplotlib.dates.DateFormatter('%b %d'))
+    ax2.xaxis.set_major_locator(plt.matplotlib.dates.MonthLocator())
+    ax2.set_xlabel('Date', fontsize=14)
+    ax2.set_ylabel('Temperature Difference (°C)', fontsize=14)
+    ax2.grid(True)
+    ax2.legend(fontsize=14)
+    
+    # Rotate and align the tick labels
+    plt.gcf().autofmt_xdate()
+    
+    # Calculate statistics for September 5th to November 5th
+    start_date = datetime(year, 9, 5)
+    end_date = datetime(year, 12, 5)
+    
+    # Create DataFrames for each scenario
+    dfs_stats = []
+    for date, temp in zip(dates, weighted_temps):
+        df = pd.DataFrame({'Date': date, 'Temperature': temp})
+        df = df[(df['Date'] >= start_date) & (df['Date'] <= end_date)]
+        dfs_stats.append(df)
+    
+    # Calculate statistics
+    stats = {
+        'Scenario': scenario_names,
+        'Max_Temperature': [df['Temperature'].max() for df in dfs_stats],
+        'Min_Temperature': [df['Temperature'].min() for df in dfs_stats],
+        'Mean_Temperature': [df['Temperature'].mean() for df in dfs_stats],
+        'Days_Above_14.44C': [count_days_above_threshold(df, 14.44)/24 for df in dfs_stats]
+    }
+    
+    # Create DataFrame from statistics
+    stats_df = pd.DataFrame(stats)
+    
+    # Create text box content
+    text_lines = [f'Statistics (9/5 - 12/5):', '']  # Add blank line
+    for i, name in enumerate(scenario_names):
+        text_lines.extend([
+            f'{name}:',
+            f'  Max: {stats["Max_Temperature"][i]:.2f}°C',
+            f'  Min: {stats["Min_Temperature"][i]:.2f}°C',
+            f'  Mean: {stats["Mean_Temperature"][i]:.2f}°C',
+            f'  Days > 14.44°C: {stats["Days_Above_14.44C"][i]:.2f}',
+            ''  # Add blank line
+        ])
+    textstr = '\n'.join(text_lines)
+    
+    # Add text box to the plot
+    props = dict(boxstyle='round', facecolor='white', alpha=0.95)
+    ax1.text(0.02, 0.98, textstr, transform=ax1.transAxes, fontsize=16,
+             verticalalignment='top', bbox=props)
+    
+    # Adjust layout to prevent overlap
+    plt.tight_layout()
+    
+    # Save the plot
+    output_file = os.path.join(output_dir, f'temperature_comparison_obs_vs_tcd_{timestamp}.png')
+    
+    # Save with high DPI for better quality
+    plt.savefig(output_file, dpi=FIGURE_DPI, bbox_inches='tight')
+    
+    # Save statistics to CSV
+    stats_file = os.path.join(output_dir, f'temperature_stats_obs_vs_tcd_{timestamp}.csv')
+    stats_df.to_csv(stats_file, index=False)
+    print(f"\nStatistics saved to: {stats_file}")
     
     return plt
 
@@ -127,30 +604,30 @@ def QAQC_plot(csv_file, year, run_name):
     flow1 = df_flow[2] * 35.3147  # 3rd column (first flow) converted to cfs
     flow2 = df_flow[5] * 35.3147  # 6th column (second flow) converted to cfs
     
-    # Interpolate WSE data to match hourly resolution and convert from meters to feet
-    wse_interp = np.interp(jdays, df_wse['JDAY'], df_wse['ELWS(m)']) * 3.28084
+    # # Interpolate WSE data to match hourly resolution and convert from meters to feet
+    # wse_interp = np.interp(jdays, df_wse['JDAY'], df_wse['ELWS(m)']) * 3.28084
     
     # Debug prints for array shapes
     print(f"\nArray shapes:")
     print(f"Temperature array shape: {temperature.shape}")
     print(f"Flow1 array shape: {flow1.shape}")
     print(f"Flow2 array shape: {flow2.shape}")
-    print(f"WSE array shape: {wse_interp.shape}")
+    # print(f"WSE array shape: {wse_interp.shape}")
     print(f"Jdays array shape: {jdays.shape}")
     
     # Convert Julian days to dates
     dates = [julian_to_date(jday, year) for jday in jdays]
     
-    # Create figure with three y-axes
+    # Create figure with two y-axes
     fig, ax1 = plt.subplots(figsize=(15, 8))
     
     # Create secondary axes
     ax2 = ax1.twinx()    # Flow axis
-    ax3 = ax1.twinx()    # WSE axis
+    # ax3 = ax1.twinx()    # WSE axis
     
     # Position the axes
     ax2.spines['right'].set_position(('axes', 1.0))      # Flow on right
-    ax3.spines['right'].set_position(('axes', 1.1))      # WSE on far right
+    # ax3.spines['right'].set_position(('axes', 1.1))      # WSE on far right
     
     # Convert temperature to Fahrenheit
     temperature_f = temperature * 9/5 + 32
@@ -178,10 +655,10 @@ def QAQC_plot(csv_file, year, run_name):
     ax2.set_ylabel('Flow (cfs)', color='red', labelpad=15)
     ax2.tick_params(axis='y', labelcolor='red')
     
-    # Plot WSE on tertiary y-axis
-    wse_line = ax3.plot(dates, wse_interp, label='WSE at Dam', color='purple', alpha=0.7)
-    ax3.set_ylabel('WSE (ft)', color='purple', labelpad=15)
-    ax3.tick_params(axis='y', labelcolor='purple')
+    # # Plot WSE on tertiary y-axis
+    # wse_line = ax3.plot(dates, wse_interp, label='WSE at Dam', color='purple', alpha=0.7)
+    # ax3.set_ylabel('WSE (ft)', color='purple', labelpad=15)
+    # ax3.tick_params(axis='y', labelcolor='purple')
     
     # Format x-axis
     ax1.xaxis.set_major_formatter(plt.matplotlib.dates.DateFormatter('%b %d'))
@@ -189,14 +666,14 @@ def QAQC_plot(csv_file, year, run_name):
     ax1.set_xlabel('Date')
     
     # Add title and grid
-    plt.title(f'Water Temperature, Flow, and WSE QAQC Plot - {year} {run_name}')
+    plt.title(f'Water Temperature and Flow QAQC Plot - {year} {run_name}')
     ax1.grid(True)
     
     # Add legends
     lines1, labels1 = ax1.get_legend_handles_labels()
     lines2, labels2 = ax2.get_legend_handles_labels()
-    lines3, labels3 = ax3.get_legend_handles_labels()
-    ax1.legend(lines1 + lines2 + lines3, labels1 + labels2 + labels3, loc='upper left')
+    # lines3, labels3 = ax3.get_legend_handles_labels()
+    ax1.legend(lines1 + lines2, labels1 + labels2, loc='upper left')
     
     # Rotate and align the tick labels
     plt.gcf().autofmt_xdate()
@@ -216,9 +693,9 @@ def QAQC_plot(csv_file, year, run_name):
     plt.savefig(output_file, dpi=300, bbox_inches='tight')
     print(f"QAQC plot saved to: {output_file}")
     
-    return plt 
+    return plt
 
-def Analog_Post_Plot(model_run_a, model_run_b):
+def Analog_Post_Plot(model_run_a, model_run_b, input_dir, scenario_a_name="Scenario A", scenario_b_name="Scenario B"):
     """
     Create comparison plots for weighted temperatures between two model runs using weighted data files
     
@@ -228,12 +705,22 @@ def Analog_Post_Plot(model_run_a, model_run_b):
         Name of the first model run (e.g., '2018_Analog_Scenario_A')
     model_run_b : str
         Name of the second model run (e.g., '2018_Analog_Scenario_B')
+    input_dir : str
+        Directory containing the input weighted data files
+    scenario_a_name : str, optional
+        Display name for the first scenario (default: "Scenario A")
+    scenario_b_name : str, optional
+        Display name for the second scenario (default: "Scenario B")
     """
     # Define the path to the weighted data files
-    base_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 
-                           'CEQUAL_outputs', '2018_Analogs_Scenario_ABC')
-    file_a = os.path.join(base_dir, f'{model_run_a}_weighted.csv')
-    file_b = os.path.join(base_dir, f'{model_run_b}_weighted.csv')
+    file_a = os.path.join(input_dir, f'{model_run_a}_weighted.csv')
+    file_b = os.path.join(input_dir, f'{model_run_b}_weighted.csv')
+    
+    # Print debug information
+    print(f"\nLooking for files in:")
+    print(f"Input directory: {input_dir}")
+    print(f"File A: {file_a}")
+    print(f"File B: {file_b}")
     
     # Check if files exist
     if not os.path.exists(file_a) or not os.path.exists(file_b):
@@ -266,9 +753,9 @@ def Analog_Post_Plot(model_run_a, model_run_b):
         color = colors[idx % len(colors)]
         
         axs[0].plot(df_a['DateTime'], df_a[col_a], 
-                   label=f'Scenario A {year}', color=color, linestyle='-')
+                   label=f'{scenario_a_name} {year}', color=color, linestyle='-')
         axs[0].plot(df_b['DateTime'], df_b[col_b], 
-                   label=f'Scenario B {year}', color=color, linestyle='--')
+                   label=f'{scenario_b_name} {year}', color=color, linestyle='--')
     
     axs[0].set_ylabel('Weighted River Release Temperature (°C)')
     axs[0].set_title('Weighted Outflow Temperature by Scenario and Year')
@@ -299,11 +786,12 @@ def Analog_Post_Plot(model_run_a, model_run_b):
     
     plt.tight_layout()
     
-    # Save the plot
-    output_dir = os.path.join(base_dir, 'comparison_plots')
+    # Create output directory within input directory
+    output_dir = os.path.join(input_dir, 'comparison_plots')
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
     
+    # Save the plot
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     output_file = os.path.join(output_dir, f'{model_run_a}_vs_{model_run_b}_{timestamp}.png')
     plt.savefig(output_file, dpi=300, bbox_inches='tight')
@@ -311,7 +799,7 @@ def Analog_Post_Plot(model_run_a, model_run_b):
     
     return plt
 
-def Analog_Post_Plot_Average(model_run_a, model_run_b):
+def Analog_Post_Plot_Average(model_run_a, model_run_b, input_dir):
     """
     Create comparison plots for average weighted temperatures between two model runs using weighted data files
     
@@ -321,12 +809,18 @@ def Analog_Post_Plot_Average(model_run_a, model_run_b):
         Name of the first model run (e.g., '2018_Analog_Scenario_A')
     model_run_b : str
         Name of the second model run (e.g., '2018_Analog_Scenario_B')
+    input_dir : str
+        Directory containing the input weighted data files
     """
     # Define the path to the weighted data files
-    base_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 
-                           'CEQUAL_outputs', '2018_Analogs_Scenario_ABC')
-    file_a = os.path.join(base_dir, f'{model_run_a}_weighted.csv')
-    file_b = os.path.join(base_dir, f'{model_run_b}_weighted.csv')
+    file_a = os.path.join(input_dir, f'{model_run_a}_weighted.csv')
+    file_b = os.path.join(input_dir, f'{model_run_b}_weighted.csv')
+    
+    # Print debug information
+    print(f"\nLooking for files in:")
+    print(f"Input directory: {input_dir}")
+    print(f"File A: {file_a}")
+    print(f"File B: {file_b}")
     
     # Check if files exist
     if not os.path.exists(file_a) or not os.path.exists(file_b):
@@ -407,7 +901,7 @@ def Analog_Post_Plot_Average(model_run_a, model_run_b):
     axs[1].plot(merged['DateTime'], avg_diff, 
                color='purple', label='Average Difference')
     
-    axs[1].set_xlabel('DateTime')
+    axs[1].set_xlabel('Date')
     axs[1].set_ylabel('Temperature Difference (°C)')
     axs[1].set_title('Average Outflow Temperature Difference')
     axs[1].legend()
@@ -415,11 +909,12 @@ def Analog_Post_Plot_Average(model_run_a, model_run_b):
     
     plt.tight_layout()
     
-    # Save the plot
-    output_dir = os.path.join(base_dir, 'comparison_plots')
+    # Create output directory within input directory
+    output_dir = os.path.join(input_dir, 'comparison_plots')
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
     
+    # Save the plot
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     output_file = os.path.join(output_dir, f'{model_run_a}_vs_{model_run_b}_average_{timestamp}.png')
     plt.savefig(output_file, dpi=300, bbox_inches='tight')
@@ -427,7 +922,7 @@ def Analog_Post_Plot_Average(model_run_a, model_run_b):
     
     return plt
 
-def Analog_Post_Plot_Interactive(model_run_a, model_run_b):
+def Analog_Post_Plot_Interactive(model_run_a, model_run_b, input_dir, scenario_a_name="Scenario A", scenario_b_name="Scenario B"):
     """
     Create interactive comparison plots for weighted temperatures between two model runs using weighted data files
     
@@ -437,12 +932,22 @@ def Analog_Post_Plot_Interactive(model_run_a, model_run_b):
         Name of the first model run (e.g., '2018_Analog_Scenario_A')
     model_run_b : str
         Name of the second model run (e.g., '2018_Analog_Scenario_B')
+    input_dir : str
+        Directory containing the input weighted data files
+    scenario_a_name : str, optional
+        Display name for the first scenario (default: "Scenario A")
+    scenario_b_name : str, optional
+        Display name for the second scenario (default: "Scenario B")
     """
     # Define the path to the weighted data files
-    base_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 
-                           'CEQUAL_outputs', '2018_Analogs_Scenario_ABC')
-    file_a = os.path.join(base_dir, f'{model_run_a}_weighted.csv')
-    file_b = os.path.join(base_dir, f'{model_run_b}_weighted.csv')
+    file_a = os.path.join(input_dir, f'{model_run_a}_weighted.csv')
+    file_b = os.path.join(input_dir, f'{model_run_b}_weighted.csv')
+    
+    # Print debug information
+    print(f"\nLooking for files in:")
+    print(f"Input directory: {input_dir}")
+    print(f"File A: {file_a}")
+    print(f"File B: {file_b}")
     
     # Check if files exist
     if not os.path.exists(file_a) or not os.path.exists(file_b):
@@ -482,7 +987,7 @@ def Analog_Post_Plot_Interactive(model_run_a, model_run_b):
         fig.add_trace(
             go.Scatter(x=df_a['DateTime'], 
                       y=df_a[col_a],
-                      name=f'Scenario A {year}',
+                      name=f'{scenario_a_name} {year}',
                       line=dict(width=2, color=color),
                       showlegend=True,
                       legendgroup=f'year_{year}',
@@ -494,7 +999,7 @@ def Analog_Post_Plot_Interactive(model_run_a, model_run_b):
         fig.add_trace(
             go.Scatter(x=df_b['DateTime'], 
                       y=df_b[col_b],
-                      name=f'Scenario B {year}',
+                      name=f'{scenario_b_name} {year}',
                       line=dict(width=2, color=color, dash='dash'),
                       showlegend=True,
                       legendgroup=f'year_{year}'),
@@ -525,7 +1030,7 @@ def Analog_Post_Plot_Interactive(model_run_a, model_run_b):
     fig.update_layout(
         height=800,
         width=1200,
-        title_text='2018 Met Analog Year Comparison for Scenario A and B',
+        title_text=f'{year} Met Analog Year Comparison for {scenario_a_name} and {scenario_b_name}',
         title_x=0.5,
         hovermode='x unified',
         template='plotly_white',
@@ -536,7 +1041,6 @@ def Analog_Post_Plot_Interactive(model_run_a, model_run_b):
             xanchor="left",
             x=1.05
         ),
-        # Add single range slider that controls both plots with reduced height
         xaxis=dict(
             rangeslider=dict(
                 visible=True,
@@ -544,7 +1048,6 @@ def Analog_Post_Plot_Interactive(model_run_a, model_run_b):
             ),
             type="date"
         ),
-        # Add bottom margin to prevent overlap
         margin=dict(b=100)
     )
     
@@ -558,11 +1061,12 @@ def Analog_Post_Plot_Interactive(model_run_a, model_run_b):
     # Link x-axes between subplots
     fig.update_xaxes(matches='x')
     
-    # Save the interactive plot as HTML
-    output_dir = os.path.join(base_dir, 'comparison_plots')
+    # Create output directory within input directory
+    output_dir = os.path.join(input_dir, 'comparison_plots')
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
     
+    # Save the interactive plot as HTML
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     output_file = os.path.join(output_dir, f'{model_run_a}_vs_{model_run_b}_interactive_{timestamp}.html')
     fig.write_html(output_file)
@@ -570,4 +1074,306 @@ def Analog_Post_Plot_Interactive(model_run_a, model_run_b):
     
     return fig
 
-fig = Analog_Post_Plot_Interactive('2018_Analog_Scenario_A', '2018_Analog_Scenario_B')
+def Analog_Post_3Plot_Avg(model_run_a, model_run_b, model_run_c, input_dir):
+    """
+    Create comparison plots for average weighted temperatures between three model runs using weighted data files
+    
+    Parameters:
+    -----------
+    model_run_a : str
+        Name of the first model run (e.g., '2018_Analog_Scenario_A')
+    model_run_b : str
+        Name of the second model run (e.g., '2018_Analog_Scenario_B')
+    model_run_c : str
+        Name of the third model run (e.g., '2018_Analog_Scenario_C')
+    input_dir : str
+        Directory containing the input weighted data files
+    """
+    # Define the path to the weighted data files
+    file_a = os.path.join(input_dir, f'{model_run_a}_weighted.csv')
+    file_b = os.path.join(input_dir, f'{model_run_b}_weighted.csv')
+    file_c = os.path.join(input_dir, f'{model_run_c}_weighted.csv')
+    
+    # Print debug information
+    print(f"\nLooking for files in:")
+    print(f"Input directory: {input_dir}")
+    print(f"File A: {file_a}")
+    print(f"File B: {file_b}")
+    print(f"File C: {file_c}")
+    
+    # Check if files exist
+    if not all(os.path.exists(f) for f in [file_a, file_b, file_c]):
+        raise ValueError(f"Could not find weighted data files for one or more scenarios")
+    
+    # Load the data
+    df_a = pd.read_csv(file_a, parse_dates=['DateTime'])
+    df_b = pd.read_csv(file_b, parse_dates=['DateTime'])
+    df_c = pd.read_csv(file_c, parse_dates=['DateTime'])
+    
+    # Find weighted temperature columns
+    temp_cols_a = [col for col in df_a.columns if col.startswith('Weighted_Temp')]
+    temp_cols_b = [col for col in df_b.columns if col.startswith('Weighted_Temp')]
+    temp_cols_c = [col for col in df_c.columns if col.startswith('Weighted_Temp')]
+    
+    # Get the years from the column names
+    years = [col.split('_')[-1] for col in temp_cols_a if col in temp_cols_b and col in temp_cols_c]
+    
+    if not years:
+        raise ValueError("No matching weighted temperature columns found in the data files")
+    
+    # Create the plots
+    fig, axs = plt.subplots(2, 1, figsize=(12, 10), sharex=True)
+    
+    # Calculate average temperatures and ranges for each scenario
+    avg_temp_a = df_a[temp_cols_a].mean(axis=1)
+    avg_temp_b = df_b[temp_cols_b].mean(axis=1)
+    avg_temp_c = df_c[temp_cols_c].mean(axis=1)
+    max_temp_a = df_a[temp_cols_a].max(axis=1)
+    min_temp_a = df_a[temp_cols_a].min(axis=1)
+    max_temp_b = df_b[temp_cols_b].max(axis=1)
+    min_temp_b = df_b[temp_cols_b].min(axis=1)
+    max_temp_c = df_c[temp_cols_c].max(axis=1)
+    min_temp_c = df_c[temp_cols_c].min(axis=1)
+    
+    # First plot: Average temperatures with shaded ranges
+    axs[0].fill_between(df_a['DateTime'], 
+                       min_temp_a, max_temp_a,
+                       color='blue', alpha=0.2, label='Scenario A Range')
+    axs[0].fill_between(df_b['DateTime'], 
+                       min_temp_b, max_temp_b,
+                       color='red', alpha=0.2, label='Scenario B Range')
+    axs[0].fill_between(df_c['DateTime'], 
+                       min_temp_c, max_temp_c,
+                       color='green', alpha=0.2, label='Scenario C Range')
+    
+    axs[0].plot(df_a['DateTime'], avg_temp_a, 
+               label='Scenario A Average', color='blue', linestyle='-')
+    axs[0].plot(df_b['DateTime'], avg_temp_b, 
+               label='Scenario B Average', color='red', linestyle='--')
+    axs[0].plot(df_c['DateTime'], avg_temp_c, 
+               label='Scenario C Average', color='green', linestyle=':')
+    
+    axs[0].set_ylabel('Weighted River Release Temperature (°C)')
+    axs[0].set_title('Average Outflow Temperature by Scenario')
+    axs[0].legend(title='Scenario')
+    axs[0].grid(True)
+    
+    # Second plot: Average differences
+    # Calculate differences for each year
+    differences_ab = []
+    differences_ac = []
+    for year in years:
+        col_a = f'Weighted_Temp_{year}'
+        col_b = f'Weighted_Temp_{year}'
+        col_c = f'Weighted_Temp_{year}'
+        
+        # Merge on DateTime to ensure alignment
+        merged = pd.merge(
+            pd.merge(
+                df_a[['DateTime', col_a]],
+                df_b[['DateTime', col_b]],
+                on='DateTime',
+                how='inner',
+                suffixes=('_a', '_b')
+            ),
+            df_c[['DateTime', col_c]],
+            on='DateTime',
+            how='inner'
+        )
+        diff_ab = merged[f'{col_b}_b'] - merged[f'{col_a}_a']
+        diff_ac = merged[col_c] - merged[f'{col_a}_a']
+        differences_ab.append(diff_ab)
+        differences_ac.append(diff_ac)
+    
+    # Convert list of differences to DataFrame
+    diff_df_ab = pd.concat(differences_ab, axis=1)
+    diff_df_ac = pd.concat(differences_ac, axis=1)
+    
+    # Calculate average difference and range
+    avg_diff_ab = diff_df_ab.mean(axis=1)
+    max_diff_ab = diff_df_ab.max(axis=1)
+    min_diff_ab = diff_df_ab.min(axis=1)
+    avg_diff_ac = diff_df_ac.mean(axis=1)
+    max_diff_ac = diff_df_ac.max(axis=1)
+    min_diff_ac = diff_df_ac.min(axis=1)
+    
+    # Plot the difference ranges and averages
+    axs[1].fill_between(merged['DateTime'], 
+                       min_diff_ab, max_diff_ab,
+                       color='red', alpha=0.2, label='B-A Difference Range')
+    axs[1].plot(merged['DateTime'], avg_diff_ab, 
+               color='red', label='B-A Average Difference')
+    
+    axs[1].fill_between(merged['DateTime'], 
+                       min_diff_ac, max_diff_ac,
+                       color='green', alpha=0.2, label='C-A Difference Range')
+    axs[1].plot(merged['DateTime'], avg_diff_ac, 
+               color='green', label='C-A Average Difference')
+    
+    axs[1].set_xlabel('Date')
+    axs[1].set_ylabel('Temperature Difference (°C)')
+    axs[1].set_title('Average Outflow Temperature Difference by Scenario')
+    axs[1].legend()
+    axs[1].grid(True)
+    
+    plt.tight_layout()
+    
+    # Create output directory within input directory
+    output_dir = os.path.join(input_dir, 'comparison_plots')
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    
+    # Save the plot
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    output_file = os.path.join(output_dir, f'{model_run_a}_vs_{model_run_b}_vs_{model_run_c}_average_{timestamp}.png')
+    plt.savefig(output_file, dpi=300, bbox_inches='tight')
+    print(f"Average plot saved to: {output_file}")
+    
+    return plt
+
+def Analog_Post_Plot_TCD_Average(model_run_a, model_run_b, input_dir):
+    """
+    Create comparison plots for average weighted temperatures between two model runs using weighted data files,
+    where scenario B uses TCD weighted temperatures
+    
+    Parameters:
+    -----------
+    model_run_a : str
+        Name of the first model run (e.g., '2018_Analog_Scenario_A')
+    model_run_b : str
+        Name of the second model run (e.g., '2018_Analog_Scenario_B')
+    input_dir : str
+        Directory containing the input weighted data files
+    """
+    # Define the path to the weighted data files
+    file_a = os.path.join(input_dir, f'{model_run_a}_weighted.csv')
+    file_b = os.path.join(input_dir, f'{model_run_b}_weighted.csv')
+    
+    # Print debug information
+    print(f"\nLooking for files in:")
+    print(f"Input directory: {input_dir}")
+    print(f"File A: {file_a}")
+    print(f"File B: {file_b}")
+    
+    # Check if files exist
+    if not os.path.exists(file_a) or not os.path.exists(file_b):
+        raise ValueError(f"Could not find weighted data files for {model_run_a} and/or {model_run_b}")
+    
+    # Load the data
+    df_a = pd.read_csv(file_a, parse_dates=['DateTime'])
+    df_b = pd.read_csv(file_b, parse_dates=['DateTime'])
+    
+    # Find weighted temperature columns
+    temp_cols_a = [col for col in df_a.columns if col.startswith('Weighted_Temp_')]
+    temp_cols_b = [col for col in df_b.columns if col.startswith('Weighted_TCD_Temp_')]
+    
+    # Get the years from the column names
+    years_a = [col.split('_')[-1] for col in temp_cols_a]
+    years_b = [col.split('_')[-1] for col in temp_cols_b]
+    
+    # Find common years
+    years = list(set(years_a).intersection(set(years_b)))
+    
+    if not years:
+        raise ValueError("No matching years found between the two files")
+    
+    print(f"\nFound matching years: {years}")
+    
+    # Create the plots
+    fig, axs = plt.subplots(2, 1, figsize=(12, 10), sharex=True)
+    
+    # Calculate average temperatures and ranges for each scenario
+    avg_temp_a = df_a[temp_cols_a].mean(axis=1)
+    avg_temp_b = df_b[temp_cols_b].mean(axis=1)
+    max_temp_a = df_a[temp_cols_a].max(axis=1)
+    min_temp_a = df_a[temp_cols_a].min(axis=1)
+    max_temp_b = df_b[temp_cols_b].max(axis=1)
+    min_temp_b = df_b[temp_cols_b].min(axis=1)
+    
+    # First plot: Average temperatures with shaded ranges
+    axs[0].fill_between(df_a['DateTime'], 
+                       min_temp_a, max_temp_a,
+                       color='blue', alpha=0.2, label='Regular Weighted Range')
+    axs[0].fill_between(df_b['DateTime'], 
+                       min_temp_b, max_temp_b,
+                       color='red', alpha=0.2, label='TCD Weighted Range')
+    
+    axs[0].plot(df_a['DateTime'], avg_temp_a, 
+               label='Regular Weighted Average', color='blue', linestyle='-')
+    axs[0].plot(df_b['DateTime'], avg_temp_b, 
+               label='TCD Weighted Average', color='red', linestyle='--')
+    
+    axs[0].set_ylabel('Weighted River Release Temperature (°C)')
+    axs[0].set_title('Average Outflow Temperature Comparison (Regular vs TCD)')
+    axs[0].legend(title='Calculation Method')
+    axs[0].grid(True)
+    
+    # Second plot: Average difference
+    # Calculate differences for each year
+    differences = []
+    for year in years:
+        col_a = f'Weighted_Temp_{year}'
+        col_b = f'Weighted_TCD_Temp_{year}'
+        
+        # Create DataFrames with just the columns we need
+        df_a_subset = df_a[['DateTime', col_a]].copy()
+        df_b_subset = df_b[['DateTime', col_b]].copy()
+        
+        # Rename columns to avoid suffix issues
+        df_a_subset = df_a_subset.rename(columns={col_a: 'temp_a'})
+        df_b_subset = df_b_subset.rename(columns={col_b: 'temp_b'})
+        
+        # Merge on DateTime
+        merged = pd.merge(df_a_subset, df_b_subset, on='DateTime', how='inner')
+        
+        # Calculate difference
+        diff = merged['temp_b'] - merged['temp_a']
+        differences.append(diff)
+    
+    # Convert list of differences to DataFrame
+    diff_df = pd.concat(differences, axis=1)
+    
+    # Calculate average difference and range
+    avg_diff = diff_df.mean(axis=1)
+    max_diff = diff_df.max(axis=1)
+    min_diff = diff_df.min(axis=1)
+    
+    # Plot the difference range and average
+    axs[1].fill_between(merged['DateTime'], 
+                       min_diff, max_diff,
+                       color='purple', alpha=0.2, label='Difference Range')
+    axs[1].plot(merged['DateTime'], avg_diff, 
+               color='purple', label='Average Difference')
+    
+    axs[1].set_xlabel('Date')
+    axs[1].set_ylabel('Temperature Difference (°C)')
+    axs[1].set_title('Average Outflow Temperature Difference (TCD - Regular)')
+    axs[1].legend()
+    axs[1].grid(True)
+    
+    plt.tight_layout()
+    
+    # Create output directory within input directory
+    output_dir = os.path.join(input_dir, 'comparison_plots')
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    
+    # Save the plot
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    output_file = os.path.join(output_dir, f'{model_run_a}_vs_{model_run_b}_tcd_average_{timestamp}.png')
+    plt.savefig(output_file, dpi=300, bbox_inches='tight')
+    print(f"TCD Average plot saved to: {output_file}")
+    
+    # Save the comparison data to CSV
+    comparison_df = pd.DataFrame({
+        'DateTime': df_a['DateTime'],
+        'Regular_Weighted_Temp': avg_temp_a,
+        'TCD_Weighted_Temp': avg_temp_b,
+        'Temperature_Difference': avg_diff
+    })
+    
+    comparison_csv = os.path.join(output_dir, f'{model_run_a}_vs_{model_run_b}_tcd_average_{timestamp}.csv')
+    comparison_df.to_csv(comparison_csv, index=False)
+    print(f"TCD Average comparison data saved to: {comparison_csv}")
+    
+    return plt
