@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+from matplotlib import patheffects  # Add this import at the top of the file
 
 def julian_to_date(julian_day, year):
     """Convert Julian day to datetime using 1921 as reference year"""
@@ -875,6 +876,7 @@ def Analog_Post_Plot_Average(model_run_a, model_run_b, input_dir):
     for year in years:
         col_a = f'Weighted_Temp_{year}'
         col_b = f'Weighted_Temp_{year}'
+        
         # Merge on DateTime to ensure alignment
         merged = pd.merge(
             df_a[['DateTime', col_a]],
@@ -900,7 +902,7 @@ def Analog_Post_Plot_Average(model_run_a, model_run_b, input_dir):
                        color='purple', alpha=0.2, label='Difference Range')
     axs[1].plot(merged['DateTime'], avg_diff, 
                color='purple', label='Average Difference')
-    
+
     axs[1].set_xlabel('Date')
     axs[1].set_ylabel('Temperature Difference (°C)')
     axs[1].set_title('Average Outflow Temperature Difference')
@@ -1158,6 +1160,12 @@ def Analog_Post_3Plot_Avg(model_run_a, model_run_b, model_run_c, input_dir):
     axs[0].legend(title='Scenario')
     axs[0].grid(True)
     
+    # Set y-axis ticks to increment by 1°C
+    y_min = int(axs[0].get_ylim()[0])  # Get current y-axis minimum and round down
+    y_max = 20  # Set maximum to 20°C
+    axs[0].set_yticks(np.arange(y_min, y_max + 1, 1))  # Create ticks at 1°C intervals
+    axs[0].set_ylim(y_min, y_max)  # Set the y-axis limits
+    
     # Second plot: Average differences
     # Calculate differences for each year
     differences_ab = []
@@ -1209,7 +1217,7 @@ def Analog_Post_3Plot_Avg(model_run_a, model_run_b, model_run_c, input_dir):
                        color='green', alpha=0.2, label='C-A Difference Range')
     axs[1].plot(merged['DateTime'], avg_diff_ac, 
                color='green', label='C-A Average Difference')
-    
+
     axs[1].set_xlabel('Date')
     axs[1].set_ylabel('Temperature Difference (°C)')
     axs[1].set_title('Average Outflow Temperature Difference by Scenario')
@@ -1302,9 +1310,61 @@ def Analog_Post_Plot_TCD_Average(model_run_a, model_run_b, input_dir):
                label='Regular Weighted Average', color='blue', linestyle='-')
     axs[0].plot(df_b['DateTime'], avg_temp_b, 
                label='TCD Weighted Average', color='red', linestyle='--')
+
+    # Add three horizontal lines with hard-coded dates and values
+    axs[0].hlines(y=14.44, xmin=datetime(2022, 8, 1), xmax=datetime(2022, 12, 31), 
+                 color='black', linestyle='--', label='Egg Incubation (14.44°C)')
+    axs[0].hlines(y=15.5, xmin=datetime(2022, 8, 1), xmax=datetime(2022, 11, 1), 
+                  color='black', linestyle=':', label='Adult Spawning (15.5°C)')
+    axs[0].hlines(y=17.0, xmin=datetime(2022, 3, 1), xmax=datetime(2022, 10, 1), 
+                 color='black', linestyle='-.', label='Adult Holding (17.0°C)')
+
+    # Add vertical lines at the ends to create brackets for each horizontal line
+    bracket_height = 0.35  # Height of the bracket in y-axis units
     
+    # Brackets for Egg Incubation line
+    axs[0].vlines(x=datetime(2022, 8, 1), ymin=14.44-bracket_height/2, ymax=14.44+bracket_height/2,
+                 color='black', linestyle='-', linewidth=1.5)
+    axs[0].vlines(x=datetime(2022, 12, 31), ymin=14.44-bracket_height/2, ymax=14.44+bracket_height/2,
+                 color='black', linestyle='-', linewidth=1.5)
+    
+    # Brackets for Adult Spawning line  
+    axs[0].vlines(x=datetime(2022, 8, 1), ymin=15.5-bracket_height/2, ymax=15.5+bracket_height/2,
+                 color='black', linestyle='-', linewidth=1.5)
+    axs[0].vlines(x=datetime(2022, 11, 1), ymin=15.5-bracket_height/2, ymax=15.5+bracket_height/2,
+                 color='black', linestyle='-', linewidth=1.5)
+    
+    # Brackets for Adult Holding line
+    axs[0].vlines(x=datetime(2022, 3, 1), ymin=17.0-bracket_height/2, ymax=17.0+bracket_height/2,
+                 color='black', linestyle='-', linewidth=1.5) 
+    axs[0].vlines(x=datetime(2022, 10, 1), ymin=17.0-bracket_height/2, ymax=17.0+bracket_height/2,
+                 color='black', linestyle='-', linewidth=1.5)
+
+    # Add text annotations above each line
+    # For Egg Incubation
+    # axs[0].text(datetime(2022, 10, 15), 14.44 + 0.00, 'Egg Incubation\n(14.44°C)', 
+    #             ha='center', va='bottom', fontsize=12,
+    #             path_effects=[patheffects.withStroke(linewidth=3, foreground='white')])
+    
+    # For Adult Spawning
+    # axs[0].text(datetime(2022, 9, 15), 15.5 + 0.10, 'Adult Spawning\n(15.5°C)', 
+    #             ha='center', va='bottom', fontsize=12,
+    #             path_effects=[patheffects.withStroke(linewidth=3, foreground='white')])
+    
+    # For Adult Holding
+    # axs[0].text(datetime(2022, 6, 15), 17.0 + 0.10, 'Adult Holding\n(17.0°C)', 
+    #             ha='center', va='bottom', fontsize=12,
+    #             path_effects=[patheffects.withStroke(linewidth=3, foreground='white')])
+
     axs[0].set_ylabel('Weighted River Release Temperature (°C)')
     axs[0].set_title('Average Outflow Temperature Comparison (Regular vs TCD)')
+    
+    # Set y-axis ticks to increment by 1°C
+    y_min = int(axs[0].get_ylim()[0])  # Get current y-axis minimum and round down
+    y_max = 20  # Set maximum to 20°C
+    axs[0].set_yticks(np.arange(y_min, y_max + 1, 1))  # Create ticks at 1°C intervals
+    axs[0].set_ylim(y_min, y_max)  # Set the y-axis limits
+    
     axs[0].legend(title='Calculation Method')
     axs[0].grid(True)
     
@@ -1344,7 +1404,7 @@ def Analog_Post_Plot_TCD_Average(model_run_a, model_run_b, input_dir):
                        color='purple', alpha=0.2, label='Difference Range')
     axs[1].plot(merged['DateTime'], avg_diff, 
                color='purple', label='Average Difference')
-    
+
     axs[1].set_xlabel('Date')
     axs[1].set_ylabel('Temperature Difference (°C)')
     axs[1].set_title('Average Outflow Temperature Difference (TCD - Regular)')

@@ -19,21 +19,22 @@ def run_all_plots():
     Run all plots for the three analog scenarios
     """
     # Define model run names
-    model_run_a = '2018_Analog_A_May'
-    model_run_b = '2018_Analog_B_May'
-    model_run_c = '2018_Analog_C_May'
+    model_run_a = '2022_Analog_Obs'
+    model_run_b = '2022_Madera_Analog'
+    #model_run_c = '2018_Analog_C_May'
     
     # Define scenario display names
     scenario_a_name = "Analog A May"
     scenario_b_name = "Analog B May"
-    scenario_c_name = "Analog C May"
+    #scenario_c_name = "Analog C May"
     
-    print(f"\nCreating plots for {model_run_a}, {model_run_b}, and {model_run_c}")
+    #print(f"\nCreating plots for {model_run_a}, {model_run_b}, and {model_run_c}")
+    print(f"\nCreating plots for {model_run_a} and {model_run_b}")
     print(f"Current working directory: {os.getcwd()}\n")
     
     # Define base directories
     base_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'CEQUAL_outputs')
-    input_dir = os.path.join(base_dir, '2018_May_Analogs_ABC')
+    input_dir = os.path.join(base_dir, '2022_Madera_TCD_Analog')
     
     # Print directory information
     print(f"Searching for files in:")
@@ -43,25 +44,25 @@ def run_all_plots():
     # Define file paths
     file_a = os.path.join(input_dir, f'{model_run_a}_weighted.csv')
     file_b = os.path.join(input_dir, f'{model_run_b}_weighted.csv')
-    file_c = os.path.join(input_dir, f'{model_run_c}_weighted.csv')
+    #file_c = os.path.join(input_dir, f'{model_run_c}_weighted.csv')
     
     print(f"File A path: {file_a}")
     print(f"File B path: {file_b}")
-    print(f"File C path: {file_c}")
+    #print(f"File C path: {file_c}")
     
     # Check if files exist
     print("\nChecking for required files:")
     print(f"File A exists: {os.path.exists(file_a)}")
     print(f"File B exists: {os.path.exists(file_b)}")
-    print(f"File C exists: {os.path.exists(file_c)}")
+    #print(f"File C exists: {os.path.exists(file_c)}")
     
     # Create basic comparison plots
     print("\nCreating basic comparison plots for scenarios A and B...")
     print(f"Creating plot for {scenario_a_name} and {scenario_b_name}")
     Analog_Post_Plot(model_run_a, model_run_b, input_dir, scenario_a_name, scenario_b_name)
     
-    print(f"\nCreating plot for {scenario_a_name} and {scenario_c_name}")
-    Analog_Post_Plot(model_run_a, model_run_c, input_dir, scenario_a_name, scenario_c_name)
+    #print(f"\nCreating plot for {scenario_a_name} and {scenario_c_name}")
+    #Analog_Post_Plot(model_run_a, model_run_c, input_dir, scenario_a_name, scenario_c_name)
     
     # Create average comparison plots
     print("\nCreating average comparison plots...")
@@ -87,10 +88,10 @@ def run_all_plots():
 def test_analog_post_tcd_average():
     """Test the Analog_Post_Plot_TCD_Average function with sample data"""
     # Configuration
-    YEAR = 2018
-    MODEL_RUN_A = f"{YEAR}_Analog_A_May"
-    MODEL_RUN_B = f"{YEAR}_Analog_B_May"
-    MODEL_RUN_C = f"{YEAR}_Analog_C_May"
+    YEAR = 2022
+    MODEL_RUN_A = f"{YEAR}_Analog_Obs"
+    MODEL_RUN_B = f"{YEAR}_Madera_Analog"
+    #MODEL_RUN_C = f"{YEAR}_Analog_C_May"
     
     # Set up input directory path
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -100,7 +101,7 @@ def test_analog_post_tcd_average():
     print(f"Year: {YEAR}")
     print(f"Model Run A: {MODEL_RUN_A}")
     print(f"Model Run B: {MODEL_RUN_B}")
-    print(f"Model Run C: {MODEL_RUN_C}")
+    #print(f"Model Run C: {MODEL_RUN_C}")
     print(f"Base directory: {base_dir}")
     print(f"Input directory: {input_dir}")
     
@@ -169,5 +170,5 @@ def test_analog_post_tcd_average():
         return
 
 if __name__ == '__main__':
-    run_all_plots()
-    #test_analog_post_tcd_average() 
+    #run_all_plots()
+    test_analog_post_tcd_average() 
